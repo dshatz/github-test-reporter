@@ -4,7 +4,8 @@ import {
   updateComment,
   listComments,
   addCommentToIssue,
-  deleteComment
+  deleteComment,
+  createGitHubClient
 } from '../client/github'
 import { Inputs } from '../types'
 import { Report } from '../ctrf/core/types/ctrf'
@@ -317,16 +318,33 @@ export async function createStatusCheck(
   let summary = core.summary.stringify()
   if (summary.length > 65000) {
     core.warning('Summary is too long to create a status check. Truncating...')
-    summary = summary.slice(0, 65000)
+    summary = summary.slice(0, 65000);
   }
 
   try {
     const formattedSummary = formatTestSummary(report.results.summary)
+    // Use the correct SHA for PR association
+    let sha = context.sha
+    if (inputs.issue) {
+      try {
+        const octokit = await createGitHubClient()
+        const pr = await octokit.pulls.get({
+          owner: context.repo.owner,
+          repo: context.repo.repo,
+          pull_number: parseInt(inputs.issue)
+        })
+        sha = pr.data.head.sha
+        core.info(`Using PR head SHA: ${sha} for PR #${inputs.issue}`)
+      } catch (error) {
+        core.warning(`Failed to fetch PR #${inputs.issue}, using context.sha: ${context.sha}. ${error}`)
+        sha = context.sha
+      }
+    }
     
     await createCheckRun(
       context.repo.owner,
       context.repo.repo,
-      context.sha,
+      sha,
       inputs.statusCheckName,
       'completed',
       report.results.summary.failed > 0 ? 'failure' : 'success',
