@@ -181696,6 +181696,33 @@ async function postOrUpdateIssueComment(inputs, marker) {
     }
 }
 /**
+ * Formats the test summary into a string like "10 passed, 1 failed, 2 skipped".
+ * @param summary - The test summary object
+ * @returns Formatted summary string
+ */
+function formatTestSummary(summary) {
+    const parts = [];
+    if (summary.passed > 0) {
+        parts.push(`${summary.passed} passed`);
+    }
+    if (summary.failed > 0) {
+        parts.push(`${summary.failed} failed`);
+    }
+    if (summary.skipped > 0) {
+        parts.push(`${summary.skipped} skipped`);
+    }
+    if (summary.pending > 0) {
+        parts.push(`${summary.pending} pending`);
+    }
+    if (summary.other > 0) {
+        parts.push(`${summary.other} other`);
+    }
+    if (parts.length === 0) {
+        return 'No tests';
+    }
+    return parts.join(', ');
+}
+/**
  * Creates a status check for a action.
  *
  * @param inputs - The user-provided inputs for configuring the status check.
@@ -181709,6 +181736,7 @@ async function createStatusCheck(inputs, report) {
         summary = summary.slice(0, 65000);
     }
     try {
+        const formattedSummary = formatTestSummary(report.results.summary);
         // Use the correct SHA for PR association
         let sha = github_1.context.sha;
         if (inputs.issue) {
@@ -181727,7 +181755,7 @@ async function createStatusCheck(inputs, report) {
                 sha = github_1.context.sha;
             }
         }
-        await (0, checks_1.createCheckRun)(github_1.context.repo.owner, github_1.context.repo.repo, sha, inputs.statusCheckName, 'completed', report.results.summary.failed > 0 ? 'failure' : 'success', 'Test Results', summary);
+        await (0, checks_1.createCheckRun)(github_1.context.repo.owner, github_1.context.repo.repo, sha, inputs.statusCheckName, 'completed', report.results.summary.failed > 0 ? 'failure' : 'success', formattedSummary, summary);
     }
     catch (error) {
         if (error instanceof Error &&
